@@ -12,6 +12,8 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { SaveTestDialog } from '@/components/SaveTestDialog';
 import { K6ResultsDashboard } from '@/components/K6ResultsDashboard';
 import { VertexAIAnalysis } from '@/components/VertexAIAnalysis';
+import { GitHubTokenModal } from '@/components/GitHubTokenModal';
+import { CAELTestResults } from '@/components/CAELTestResults';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -39,6 +41,13 @@ export default function Dashboard() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
+  const [showGitHubTokenModal, setShowGitHubTokenModal] = useState(false);
+  const [caelTestRun, setCAELTestRun] = useState<{
+    runId: string;
+    runUrl: string;
+    testId: string;
+    githubToken: string;
+  } | null>(null);
 
   const selectedApp = apps.find((app) => app.id === selectedAppId);
   const availableApis = selectedAppId ? apiEndpointsByApp[selectedAppId] || [] : [];
@@ -124,9 +133,70 @@ export default function Dashboard() {
   };
 
   const handleSelectApp = (appId: string) => {
+    const app = apps.find((a) => a.id === appId);
+    
+    // Check if this is CAEL - show GitHub token modal instead of wizard
+    if (app?.isRealIntegration) {
+      setSelectedAppId(appId);
+      setShowGitHubTokenModal(true);
+      return;
+    }
+    
+    // Regular flow for mock applications
     setSelectedAppId(appId);
     setSelectedApiIds([]);
     setCurrentStep('apis');
+  };
+
+  const handleGitHubTokenSubmit = async (token: string) => {
+    setShowGitHubTokenModal(false);
+
+    toast({
+      title: 'Triggering GitHub Actions workflow...',
+      description: 'Please wait while we start the load test',
+    });
+
+    try {
+      const response = await fetch('/api/github/trigger-workflow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to trigger workflow');
+      }
+
+      const data = await response.json();
+
+      setCAELTestRun({
+        runId: data.runId,
+        runUrl: data.runUrl,
+        testId: data.testId,
+        githubToken: token,
+      });
+
+      toast({
+        title: 'Workflow triggered successfully!',
+        description: `Test ID: ${data.testId}`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to trigger workflow',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+      
+      // Reset selection if failed
+      setSelectedAppId(null);
+    }
+  };
+
+  const handleCAELBack = () => {
+    setCAELTestRun(null);
+    setSelectedAppId(null);
   };
 
   const handleToggleApi = (apiId: string) => {
@@ -190,7 +260,19 @@ export default function Dashboard() {
       <Header />
 
       <main className="container mx-auto max-w-7xl px-6 py-8">
-        {currentStep === 'dashboard' && (
+        {/* CAEL Test Results - Real GitHub Actions Integration */}
+        {caelTestRun && (
+          <CAELTestResults
+            runId={caelTestRun.runId}
+            runUrl={caelTestRun.runUrl}
+            testId={caelTestRun.testId}
+            githubToken={caelTestRun.githubToken}
+            onBack={handleCAELBack}
+          />
+        )}
+
+        {/* Regular Dashboard - Mock Tests */}
+        {!caelTestRun && currentStep === 'dashboard' && (
           <div className="space-y-12">
             <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-chart-2/10 to-chart-3/10 p-12 text-center">
               <h1 className="mb-3 text-5xl font-bold" data-testid="text-hero-title">
@@ -221,7 +303,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {currentStep !== 'dashboard' && (
+        {!caelTestRun && currentStep !== 'dashboard' && (
           <div className="space-y-8">
             <Breadcrumb items={breadcrumbItems} />
 
@@ -452,6 +534,12 @@ export default function Dashboard() {
         onOpenChange={setShowSaveDialog}
         onSave={handleSaveAndTrigger}
         defaultName={selectedApp ? `${selectedApp.name} Test` : ''}
+      />
+
+      <GitHubTokenModal
+        open={showGitHubTokenModal}
+        onOpenChange={setShowGitHubTokenModal}
+        onSubmit={handleGitHubTokenSubmit}
       />
     </div>
   );
