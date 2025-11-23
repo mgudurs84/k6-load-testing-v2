@@ -81,6 +81,22 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        method: {
+          get: "rgb(16 185 129)",
+          post: "rgb(59 130 246)",
+          put: "rgb(251 146 60)",
+          delete: "rgb(239 68 68)",
+        },
+        app: {
+          blue: "rgb(59 130 246)",
+          green: "rgb(16 185 129)",
+          purple: "rgb(168 85 247)",
+          orange: "rgb(251 146 60)",
+          yellow: "rgb(234 179 8)",
+          pink: "rgb(236 72 153)",
+          teal: "rgb(20 184 166)",
+          indigo: "rgb(99 102 241)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
