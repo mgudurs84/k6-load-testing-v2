@@ -9,16 +9,20 @@ import { ApiEndpointList } from '@/components/ApiEndpointList';
 import { TestConfiguration } from '@/components/TestConfiguration';
 import { TestReview } from '@/components/TestReview';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { SaveTestDialog } from '@/components/SaveTestDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { healthcareApps, apiEndpointsByApp } from '@shared/mock-data';
 
 type WizardStep = 'dashboard' | 'application' | 'apis' | 'configure' | 'review';
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState<WizardStep>('dashboard');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [selectedApiIds, setSelectedApiIds] = useState<string[]>([]);
@@ -33,6 +37,42 @@ export default function Dashboard() {
   const [apps, setApps] = useState(healthcareApps);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+
+  const createConfigMutation = useMutation({
+    mutationFn: async (data: { name: string; config: any }) => {
+      const response = await apiRequest('POST', '/api/test-configurations', {
+        name: data.name,
+        applicationId: data.config.applicationId,
+        selectedApiIds: data.config.selectedApiIds,
+        virtualUsers: data.config.virtualUsers,
+        rampUpTime: data.config.rampUpTime,
+        duration: data.config.duration,
+        thinkTime: data.config.thinkTime,
+        responseTimeThreshold: data.config.responseTimeThreshold,
+        errorRateThreshold: data.config.errorRateThreshold,
+      });
+      return response as any;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/test-configurations'] });
+    },
+  });
+
+  const createRunMutation = useMutation({
+    mutationFn: async (data: { testConfigurationId: string }) => {
+      const response = await apiRequest('POST', '/api/test-runs', {
+        testConfigurationId: data.testConfigurationId,
+        status: 'pending',
+        results: null,
+        completedAt: null,
+      });
+      return response as any;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/test-runs'] });
+    },
+  });
 
   const selectedApp = apps.find((app) => app.id === selectedAppId);
   const availableApis = selectedAppId ? apiEndpointsByApp[selectedAppId] || [] : [];
@@ -125,15 +165,53 @@ export default function Dashboard() {
   };
 
   const handleTriggerTest = () => {
-    toast({
-      title: 'Load test triggered!',
-      description: `Testing ${selectedApiIds.length} APIs with ${testConfig.virtualUsers} virtual users`,
-    });
-    console.log('Test triggered with config:', {
-      app: selectedApp,
-      apis: selectedApis,
-      config: testConfig,
-    });
+    setShowSaveDialog(true);
+  };
+
+  const handleSaveAndTrigger = async (name: string) => {
+    if (!selectedAppId) return;
+
+    try {
+      const configData = {
+        name,
+        config: {
+          applicationId: selectedAppId,
+          selectedApiIds,
+          ...testConfig,
+        },
+      };
+
+      const savedConfig = await createConfigMutation.mutateAsync(configData);
+
+      const runData = {
+        testConfigurationId: savedConfig.id,
+      };
+
+      await createRunMutation.mutateAsync(runData);
+
+      toast({
+        title: 'Load test triggered!',
+        description: `Testing ${selectedApiIds.length} APIs with ${testConfig.virtualUsers} virtual users`,
+      });
+
+      setCurrentStep('dashboard');
+      setSelectedAppId(null);
+      setSelectedApiIds([]);
+      setTestConfig({
+        virtualUsers: 100,
+        rampUpTime: 5,
+        duration: 10,
+        thinkTime: 3,
+        responseTimeThreshold: undefined,
+        errorRateThreshold: undefined,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save and trigger test',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -320,6 +398,13 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      <SaveTestDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        onSave={handleSaveAndTrigger}
+        defaultName={selectedApp ? `${selectedApp.name} Test` : ''}
+      />
     </div>
   );
 }

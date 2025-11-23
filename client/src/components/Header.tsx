@@ -1,18 +1,47 @@
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Home, History } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export function Header() {
+  const [location] = useLocation();
+
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
       <div className="flex h-16 items-center gap-4 px-6">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 hover-elevate rounded-lg px-2 py-1">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-chart-2">
             <span className="text-lg font-bold text-white">K6</span>
           </div>
           <span className="text-lg font-semibold">K6 Load Testing</span>
-        </div>
+        </Link>
+
+        <nav className="flex gap-2">
+          <a href="/" onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }}>
+            <Button
+              variant={location === '/' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-2"
+              data-testid="button-nav-home"
+            >
+              <Home className="h-4 w-4" />
+              Dashboard
+            </Button>
+          </a>
+          <a href="/history" onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/history'); window.dispatchEvent(new PopStateEvent('popstate')); }}>
+            <Button
+              variant={location === '/history' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-2"
+              data-testid="button-nav-history"
+            >
+              <History className="h-4 w-4" />
+              Test History
+            </Button>
+          </a>
+        </nav>
 
         <div className="mx-auto w-full max-w-md">
           <div className="relative">
