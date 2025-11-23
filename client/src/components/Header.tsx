@@ -2,7 +2,6 @@ import { Bell, Search, Home, History } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export function Header() {
@@ -60,12 +59,7 @@ export function Header() {
             className="hover-elevate active-elevate-2 rounded-full p-2"
             data-testid="button-notifications"
           >
-            <span className="relative inline-flex">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs -translate-y-1/2 translate-x-1/2">
-                3
-              </Badge>
-            </span>
+            <Bell className="h-5 w-5" />
           </button>
 
           <div className="flex items-center gap-2">
