@@ -14,17 +14,14 @@ import { K6ResultsDashboard } from '@/components/K6ResultsDashboard';
 import { VertexAIAnalysis } from '@/components/VertexAIAnalysis';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
 import { healthcareApps, apiEndpointsByApp } from '@shared/mock-data';
 
 type WizardStep = 'dashboard' | 'application' | 'apis' | 'configure' | 'review' | 'results';
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState<WizardStep>('dashboard');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [selectedApiIds, setSelectedApiIds] = useState<string[]>([]);
@@ -42,41 +39,6 @@ export default function Dashboard() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
-
-  const createConfigMutation = useMutation({
-    mutationFn: async (data: { name: string; config: any }) => {
-      const response = await apiRequest('POST', '/api/test-configurations', {
-        name: data.name,
-        applicationId: data.config.applicationId,
-        selectedApiIds: data.config.selectedApiIds,
-        virtualUsers: data.config.virtualUsers,
-        rampUpTime: data.config.rampUpTime,
-        duration: data.config.duration,
-        thinkTime: data.config.thinkTime,
-        responseTimeThreshold: data.config.responseTimeThreshold,
-        errorRateThreshold: data.config.errorRateThreshold,
-      });
-      return response as any;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/test-configurations'] });
-    },
-  });
-
-  const createRunMutation = useMutation({
-    mutationFn: async (data: { testConfigurationId: string }) => {
-      const response = await apiRequest('POST', '/api/test-runs', {
-        testConfigurationId: data.testConfigurationId,
-        status: 'pending',
-        results: null,
-        completedAt: null,
-      });
-      return response as any;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/test-runs'] });
-    },
-  });
 
   const selectedApp = apps.find((app) => app.id === selectedAppId);
   const availableApis = selectedAppId ? apiEndpointsByApp[selectedAppId] || [] : [];
@@ -98,7 +60,7 @@ export default function Dashboard() {
       status:
         currentStep === 'application'
           ? 'active'
-          : currentStep === 'apis' || currentStep === 'configure' || currentStep === 'review'
+          : currentStep === 'apis' || currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
             ? 'completed'
             : 'pending',
     },
@@ -108,19 +70,34 @@ export default function Dashboard() {
       status:
         currentStep === 'apis'
           ? 'active'
-          : currentStep === 'configure' || currentStep === 'review'
+          : currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
             ? 'completed'
             : 'pending',
     },
     {
       number: 3,
       label: 'Configure',
-      status: currentStep === 'configure' ? 'active' : currentStep === 'review' ? 'completed' : 'pending',
+      status: 
+        currentStep === 'configure' 
+          ? 'active' 
+          : currentStep === 'review' || currentStep === 'results'
+            ? 'completed' 
+            : 'pending',
     },
     {
       number: 4,
       label: 'Review',
-      status: currentStep === 'review' ? 'active' : 'pending',
+      status: 
+        currentStep === 'review' 
+          ? 'active' 
+          : currentStep === 'results'
+            ? 'completed'
+            : 'pending',
+    },
+    {
+      number: 5,
+      label: 'Results',
+      status: currentStep === 'results' ? 'active' : 'pending',
     },
   ];
 
@@ -174,60 +151,38 @@ export default function Dashboard() {
     setShowSaveDialog(true);
   };
 
-  const handleSaveAndTrigger = async (name: string) => {
+  const handleSaveAndTrigger = (name: string) => {
     if (!selectedAppId) return;
 
-    try {
-      const configData = {
-        name,
-        config: {
-          applicationId: selectedAppId,
-          selectedApiIds,
-          ...testConfig,
-        },
+    // Close the dialog immediately
+    setShowSaveDialog(false);
+
+    toast({
+      title: 'Load test triggered!',
+      description: `Testing ${selectedApiIds.length} APIs with ${testConfig.virtualUsers} virtual users`,
+    });
+
+    // Simulate test execution and generate mock results
+    setTimeout(() => {
+      const mockResults = {
+        avgResponseTime: Math.floor(Math.random() * 300) + 150,
+        p95ResponseTime: Math.floor(Math.random() * 200) + 300,
+        p99ResponseTime: Math.floor(Math.random() * 200) + 450,
+        errorRate: Math.random() * 2,
+        requestsPerSecond: Math.floor(Math.random() * 30) + 40,
+        totalRequests: testConfig.virtualUsers * testConfig.duration * 50,
+        successfulRequests: 0,
+        failedRequests: 0,
       };
+      mockResults.successfulRequests = Math.floor(
+        mockResults.totalRequests * (1 - mockResults.errorRate / 100)
+      );
+      mockResults.failedRequests = mockResults.totalRequests - mockResults.successfulRequests;
 
-      const savedConfig = await createConfigMutation.mutateAsync(configData);
-
-      const runData = {
-        testConfigurationId: savedConfig.id,
-      };
-
-      await createRunMutation.mutateAsync(runData);
-
-      toast({
-        title: 'Load test triggered!',
-        description: `Testing ${selectedApiIds.length} APIs with ${testConfig.virtualUsers} virtual users`,
-      });
-
-      // Simulate test execution and generate mock results
-      setTimeout(() => {
-        const mockResults = {
-          avgResponseTime: Math.floor(Math.random() * 300) + 150,
-          p95ResponseTime: Math.floor(Math.random() * 200) + 300,
-          p99ResponseTime: Math.floor(Math.random() * 200) + 450,
-          errorRate: Math.random() * 2,
-          requestsPerSecond: Math.floor(Math.random() * 30) + 40,
-          totalRequests: testConfig.virtualUsers * testConfig.duration * 50,
-          successfulRequests: 0,
-          failedRequests: 0,
-        };
-        mockResults.successfulRequests = Math.floor(
-          mockResults.totalRequests * (1 - mockResults.errorRate / 100)
-        );
-        mockResults.failedRequests = mockResults.totalRequests - mockResults.successfulRequests;
-
-        setTestResults(mockResults);
-        setShowAIAnalysis(false);
-        setCurrentStep('results');
-      }, 1500);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save and trigger test',
-        variant: 'destructive',
-      });
-    }
+      setTestResults(mockResults);
+      setShowAIAnalysis(false);
+      setCurrentStep('results');
+    }, 1500);
   };
 
   return (
