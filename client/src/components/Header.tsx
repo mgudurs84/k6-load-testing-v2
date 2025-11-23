@@ -57,13 +57,15 @@ export function Header() {
 
         <div className="flex items-center gap-4">
           <button
-            className="relative hover-elevate active-elevate-2 rounded-full p-2"
+            className="hover-elevate active-elevate-2 rounded-full p-2"
             data-testid="button-notifications"
           >
-            <Bell className="h-5 w-5" />
-            <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs">
-              3
-            </Badge>
+            <span className="relative inline-flex">
+              <Bell className="h-5 w-5" />
+              <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs -translate-y-1/2 translate-x-1/2">
+                3
+              </Badge>
+            </span>
           </button>
 
           <div className="flex items-center gap-2">
