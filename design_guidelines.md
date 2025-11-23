@@ -1,4 +1,4 @@
-# K6 Load Testing Dashboard - Design Guidelines
+# CDR Pulse - Design Guidelines
 
 ## Design Approach
 

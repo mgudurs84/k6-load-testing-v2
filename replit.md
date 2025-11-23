@@ -1,8 +1,8 @@
-# K6 Load Testing Dashboard
+# CDR Pulse
 
 ## Overview
 
-This is a K6 Load Testing Dashboard application designed for healthcare CDR (Clinical Data Repository) applications. It provides a web-based interface for configuring, executing, and monitoring load tests on healthcare APIs. The application follows a wizard-based workflow that guides users through selecting applications, choosing API endpoints, configuring test parameters, and reviewing test results.
+This is CDR Pulse, an intelligent performance testing dashboard application designed for healthcare CDR (Clinical Data Repository) applications. It provides a web-based interface for configuring, executing, and monitoring load tests on healthcare APIs. The application follows a wizard-based workflow that guides users through selecting applications, choosing API endpoints, configuring test parameters, and reviewing test results.
 
 The system enables healthcare organizations to ensure their clinical data exchange platforms can handle production-level traffic while maintaining performance standards required for patient care systems.
 

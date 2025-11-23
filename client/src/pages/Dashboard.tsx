@@ -194,7 +194,7 @@ export default function Dashboard() {
           <div className="space-y-12">
             <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-chart-2/10 to-chart-3/10 p-12 text-center">
               <h1 className="mb-3 text-5xl font-bold" data-testid="text-hero-title">
-                Supercharge Your APIs with Load Testing
+                CDR Pulse - Intelligent Performance Testing
               </h1>
               <p className="mx-auto max-w-2xl text-lg text-muted-foreground" data-testid="text-hero-subtitle">
                 Test your CDR applications with enterprise-grade performance testing
