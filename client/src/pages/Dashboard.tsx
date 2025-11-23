@@ -10,6 +10,8 @@ import { TestConfiguration } from '@/components/TestConfiguration';
 import { TestReview } from '@/components/TestReview';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { SaveTestDialog } from '@/components/SaveTestDialog';
+import { K6ResultsDashboard } from '@/components/K6ResultsDashboard';
+import { VertexAIAnalysis } from '@/components/VertexAIAnalysis';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +20,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { healthcareApps, apiEndpointsByApp } from '@shared/mock-data';
 
-type WizardStep = 'dashboard' | 'application' | 'apis' | 'configure' | 'review';
+type WizardStep = 'dashboard' | 'application' | 'apis' | 'configure' | 'review' | 'results';
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -38,6 +40,8 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
+  const [testResults, setTestResults] = useState<any>(null);
 
   const createConfigMutation = useMutation({
     mutationFn: async (data: { name: string; config: any }) => {
@@ -129,7 +133,9 @@ export default function Dashboard() {
           ? ['Dashboard', selectedApp?.name || 'Application', 'API Selection']
           : currentStep === 'configure'
             ? ['Dashboard', selectedApp?.name || 'Application', 'Configure Test']
-            : ['Dashboard', selectedApp?.name || 'Application', 'Review'];
+            : currentStep === 'review'
+              ? ['Dashboard', selectedApp?.name || 'Application', 'Review']
+              : ['Dashboard', selectedApp?.name || 'Application', 'Test Results'];
 
   const toggleFavorite = (appId: string) => {
     setApps((prev) =>
@@ -194,17 +200,27 @@ export default function Dashboard() {
         description: `Testing ${selectedApiIds.length} APIs with ${testConfig.virtualUsers} virtual users`,
       });
 
-      setCurrentStep('dashboard');
-      setSelectedAppId(null);
-      setSelectedApiIds([]);
-      setTestConfig({
-        virtualUsers: 100,
-        rampUpTime: 5,
-        duration: 10,
-        thinkTime: 3,
-        responseTimeThreshold: undefined,
-        errorRateThreshold: undefined,
-      });
+      // Simulate test execution and generate mock results
+      setTimeout(() => {
+        const mockResults = {
+          avgResponseTime: Math.floor(Math.random() * 300) + 150,
+          p95ResponseTime: Math.floor(Math.random() * 200) + 300,
+          p99ResponseTime: Math.floor(Math.random() * 200) + 450,
+          errorRate: Math.random() * 2,
+          requestsPerSecond: Math.floor(Math.random() * 30) + 40,
+          totalRequests: testConfig.virtualUsers * testConfig.duration * 50,
+          successfulRequests: 0,
+          failedRequests: 0,
+        };
+        mockResults.successfulRequests = Math.floor(
+          mockResults.totalRequests * (1 - mockResults.errorRate / 100)
+        );
+        mockResults.failedRequests = mockResults.totalRequests - mockResults.successfulRequests;
+
+        setTestResults(mockResults);
+        setShowAIAnalysis(false);
+        setCurrentStep('results');
+      }, 1500);
     } catch (error) {
       toast({
         title: 'Error',
@@ -393,6 +409,83 @@ export default function Dashboard() {
                   onTrigger={handleTriggerTest}
                   onBack={() => setCurrentStep('configure')}
                 />
+              </div>
+            )}
+
+            {currentStep === 'results' && testResults && (
+              <div className="space-y-8">
+                {!showAIAnalysis ? (
+                  <K6ResultsDashboard 
+                    results={testResults}
+                    onAnalyzeWithAI={() => setShowAIAnalysis(true)}
+                  />
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowAIAnalysis(false)}
+                        data-testid="button-back-to-results"
+                      >
+                        ← Back to K6 Results
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          setCurrentStep('dashboard');
+                          setSelectedAppId(null);
+                          setSelectedApiIds([]);
+                          setTestResults(null);
+                          setShowAIAnalysis(false);
+                          setTestConfig({
+                            virtualUsers: 100,
+                            rampUpTime: 5,
+                            duration: 10,
+                            thinkTime: 3,
+                            responseTimeThreshold: undefined,
+                            errorRateThreshold: undefined,
+                          });
+                        }}
+                        data-testid="button-new-test"
+                      >
+                        Start New Test
+                      </Button>
+                    </div>
+                    <VertexAIAnalysis results={testResults} />
+                  </>
+                )}
+                
+                {!showAIAnalysis && (
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCurrentStep('dashboard');
+                        setSelectedAppId(null);
+                        setSelectedApiIds([]);
+                        setTestResults(null);
+                        setShowAIAnalysis(false);
+                        setTestConfig({
+                          virtualUsers: 100,
+                          rampUpTime: 5,
+                          duration: 10,
+                          thinkTime: 3,
+                          responseTimeThreshold: undefined,
+                          errorRateThreshold: undefined,
+                        });
+                      }}
+                      data-testid="button-back-dashboard"
+                    >
+                      Back to Dashboard
+                    </Button>
+                    <Button
+                      onClick={() => setCurrentStep('review')}
+                      data-testid="button-run-again"
+                    >
+                      Run Test Again
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
