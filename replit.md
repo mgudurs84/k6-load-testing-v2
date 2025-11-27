@@ -117,7 +117,7 @@ The CAEL (Clinical Analytics Exchange Layer) application is the only application
 
 ### Architecture Decision
 
-**Separate Flow**: CAEL bypasses the standard wizard (Application → APIs → Configure → Review → Results) and instead uses a dedicated flow:
+**Separate Flow**: CAEL bypasses the standard wizard (Application → APIs → Payloads → Configure → Review → Results) and instead uses a dedicated flow:
 
 1. User selects CAEL application (flagged with `isRealIntegration: true`)
 2. GitHub token modal appears for authentication
@@ -185,3 +185,55 @@ The CAEL integration requires a valid GitHub personal access token with `repo` a
 2. Display artifact fetch failures to user (currently only logged)
 3. Support for custom test parameters instead of hardcoded values
 4. Unit/integration tests for GitHub API routes
+
+## Payload Upload Feature
+
+### Overview
+
+The wizard includes a "Upload Payloads" step between API selection and test configuration. This allows users to upload JSON files containing test data for each selected API endpoint.
+
+### Wizard Flow (6 Steps)
+
+1. **Application** - Select the CDR application to test
+2. **APIs** - Choose API endpoints to include in the load test
+3. **Payloads** - Upload JSON files with test data for each API
+4. **Configure** - Set virtual users, duration, ramp-up time, and thresholds
+5. **Review** - Verify all settings including uploaded payloads
+6. **Results** - View test execution results and AI analysis
+
+### Components
+
+**PayloadUploadStep** (`client/src/components/PayloadUploadStep.tsx`):
+- Displays file upload card for each selected API
+- Accepts JSON files containing array of payload objects
+- Shows file name, record count, and JSON preview
+- Supports preview dialog with first 5 records
+- Allows removal and re-upload of payload files
+- Tracks upload progress across all APIs
+
+### JSON File Format
+
+Upload a JSON file with an array of objects. Each object represents one request payload:
+
+```json
+[
+  {"patientId": "P001", "name": "John Doe", "dob": "1990-01-15"},
+  {"patientId": "P002", "name": "Jane Smith", "dob": "1985-03-22"},
+  {"patientId": "P003", "name": "Bob Wilson", "dob": "1978-11-30"}
+]
+```
+
+### State Management
+
+- Payloads are stored in React state (in-memory)
+- Payloads persist when navigating between wizard steps
+- Payloads are filtered when APIs are deselected (preserves relevant uploads)
+- Payloads are cleared when starting a new test
+
+### TestReview Integration
+
+The review step displays:
+- Total files uploaded count
+- Total records across all payload files
+- APIs configured vs total selected
+- Expandable details showing per-API payload status
