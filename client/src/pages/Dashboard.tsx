@@ -6,6 +6,7 @@ import { StatsCard } from '@/components/StatsCard';
 import { StepIndicator, Step } from '@/components/StepIndicator';
 import { ApplicationCard } from '@/components/ApplicationCard';
 import { ApiEndpointList } from '@/components/ApiEndpointList';
+import { PayloadUploadStep, PayloadFile } from '@/components/PayloadUploadStep';
 import { TestConfiguration } from '@/components/TestConfiguration';
 import { TestReview } from '@/components/TestReview';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -20,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { healthcareApps, apiEndpointsByApp } from '@shared/mock-data';
 
-type WizardStep = 'dashboard' | 'application' | 'apis' | 'configure' | 'review' | 'results';
+type WizardStep = 'dashboard' | 'application' | 'apis' | 'payload' | 'configure' | 'review' | 'results';
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
   const [showGitHubTokenModal, setShowGitHubTokenModal] = useState(false);
+  const [payloads, setPayloads] = useState<PayloadFile[]>([]);
   const [caelTestRun, setCAELTestRun] = useState<{
     runId: string;
     runUrl: string;
@@ -69,7 +71,7 @@ export default function Dashboard() {
       status:
         currentStep === 'application'
           ? 'active'
-          : currentStep === 'apis' || currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
+          : currentStep === 'apis' || currentStep === 'payload' || currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
             ? 'completed'
             : 'pending',
     },
@@ -79,12 +81,22 @@ export default function Dashboard() {
       status:
         currentStep === 'apis'
           ? 'active'
-          : currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
+          : currentStep === 'payload' || currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
             ? 'completed'
             : 'pending',
     },
     {
       number: 3,
+      label: 'Payloads',
+      status:
+        currentStep === 'payload'
+          ? 'active'
+          : currentStep === 'configure' || currentStep === 'review' || currentStep === 'results'
+            ? 'completed'
+            : 'pending',
+    },
+    {
+      number: 4,
       label: 'Configure',
       status: 
         currentStep === 'configure' 
@@ -94,7 +106,7 @@ export default function Dashboard() {
             : 'pending',
     },
     {
-      number: 4,
+      number: 5,
       label: 'Review',
       status: 
         currentStep === 'review' 
@@ -104,7 +116,7 @@ export default function Dashboard() {
             : 'pending',
     },
     {
-      number: 5,
+      number: 6,
       label: 'Results',
       status: currentStep === 'results' ? 'active' : 'pending',
     },
@@ -117,11 +129,13 @@ export default function Dashboard() {
         ? ['Dashboard', 'Select Application']
         : currentStep === 'apis'
           ? ['Dashboard', selectedApp?.name || 'Application', 'API Selection']
-          : currentStep === 'configure'
-            ? ['Dashboard', selectedApp?.name || 'Application', 'Configure Test']
-            : currentStep === 'review'
-              ? ['Dashboard', selectedApp?.name || 'Application', 'Review']
-              : ['Dashboard', selectedApp?.name || 'Application', 'Test Results'];
+          : currentStep === 'payload'
+            ? ['Dashboard', selectedApp?.name || 'Application', 'Upload Payloads']
+            : currentStep === 'configure'
+              ? ['Dashboard', selectedApp?.name || 'Application', 'Configure Test']
+              : currentStep === 'review'
+                ? ['Dashboard', selectedApp?.name || 'Application', 'Review']
+                : ['Dashboard', selectedApp?.name || 'Application', 'Test Results'];
 
   const toggleFavorite = (appId: string) => {
     setApps((prev) =>
@@ -205,7 +219,7 @@ export default function Dashboard() {
     );
   };
 
-  const handleContinueToConfig = () => {
+  const handleContinueToPayload = () => {
     if (selectedApiIds.length === 0) {
       toast({
         title: 'No APIs selected',
@@ -214,6 +228,12 @@ export default function Dashboard() {
       });
       return;
     }
+    // Only clear payloads for APIs that are no longer selected
+    setPayloads((prev) => prev.filter((p) => selectedApiIds.includes(p.apiId)));
+    setCurrentStep('payload');
+  };
+
+  const handleContinueToConfig = () => {
     setCurrentStep('configure');
   };
 
@@ -377,9 +397,37 @@ export default function Dashboard() {
                     Back to Applications
                   </Button>
                   <Button
-                    onClick={handleContinueToConfig}
+                    onClick={handleContinueToPayload}
                     className="gap-2"
                     disabled={selectedApiIds.length === 0}
+                    data-testid="button-continue-payload"
+                  >
+                    Continue to Payload Upload
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 'payload' && selectedApp && (
+              <div className="space-y-8">
+                <PayloadUploadStep
+                  selectedApis={selectedApis}
+                  payloads={payloads}
+                  onPayloadsChange={setPayloads}
+                />
+
+                <div className="flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep('apis')}
+                    data-testid="button-back-to-apis"
+                  >
+                    Back to API Selection
+                  </Button>
+                  <Button
+                    onClick={handleContinueToConfig}
+                    className="gap-2"
                     data-testid="button-continue-config"
                   >
                     Continue to Configuration
@@ -421,8 +469,8 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex justify-between">
-                  <Button variant="outline" onClick={() => setCurrentStep('apis')} data-testid="button-back-to-apis">
-                    Back to API Selection
+                  <Button variant="outline" onClick={() => setCurrentStep('payload')} data-testid="button-back-to-payload">
+                    Back to Payload Upload
                   </Button>
                   <Button onClick={() => setCurrentStep('review')} className="gap-2" data-testid="button-review">
                     Review Configuration
@@ -443,6 +491,7 @@ export default function Dashboard() {
                   application={selectedApp}
                   selectedApis={selectedApis}
                   config={testConfig}
+                  payloads={payloads}
                   onTrigger={handleTriggerTest}
                   onBack={() => setCurrentStep('configure')}
                 />
@@ -472,6 +521,7 @@ export default function Dashboard() {
                           setCurrentStep('dashboard');
                           setSelectedAppId(null);
                           setSelectedApiIds([]);
+                          setPayloads([]);
                           setTestResults(null);
                           setShowAIAnalysis(false);
                           setTestConfig({
@@ -500,6 +550,7 @@ export default function Dashboard() {
                         setCurrentStep('dashboard');
                         setSelectedAppId(null);
                         setSelectedApiIds([]);
+                        setPayloads([]);
                         setTestResults(null);
                         setShowAIAnalysis(false);
                         setTestConfig({

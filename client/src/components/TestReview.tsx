@@ -1,9 +1,16 @@
-import { ChevronDown, ChevronUp, Copy, Rocket } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Rocket, FileJson, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import * as LucideIcons from 'lucide-react';
+
+interface PayloadFile {
+  apiId: string;
+  fileName: string;
+  data: any[];
+  recordCount: number;
+}
 
 interface TestReviewProps {
   application: {
@@ -25,6 +32,7 @@ interface TestReviewProps {
     responseTimeThreshold?: number;
     errorRateThreshold?: number;
   };
+  payloads?: PayloadFile[];
   onTrigger: () => void;
   onBack: () => void;
 }
@@ -40,9 +48,12 @@ const colorClasses: Record<string, string> = {
   indigo: 'bg-gradient-to-r from-app-indigo to-app-blue',
 };
 
-export function TestReview({ application, selectedApis, config, onTrigger, onBack }: TestReviewProps) {
+export function TestReview({ application, selectedApis, config, payloads = [], onTrigger, onBack }: TestReviewProps) {
   const [apisExpanded, setApisExpanded] = useState(false);
+  const [payloadsExpanded, setPayloadsExpanded] = useState(false);
   const Icon = (LucideIcons as any)[application.icon] || LucideIcons.Box;
+  
+  const getPayloadForApi = (apiId: string) => payloads.find(p => p.apiId === apiId);
 
   const payloadPreview = JSON.stringify(
     {
@@ -138,6 +149,87 @@ export function TestReview({ application, selectedApis, config, onTrigger, onBac
               </div>
             )}
           </div>
+
+          {payloads.length > 0 && (
+            <div className="mt-6 space-y-4 border-t pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileJson className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Payload Data</h3>
+                  <Badge variant="secondary" data-testid="badge-payload-count">
+                    {payloads.length} files uploaded
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPayloadsExpanded(!payloadsExpanded)}
+                  data-testid="button-toggle-payloads"
+                >
+                  {payloadsExpanded ? (
+                    <>
+                      Hide <ChevronUp className="ml-1 h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      View Details <ChevronDown className="ml-1 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Total Records</span>
+                  <span className="font-medium text-foreground" data-testid="text-total-records">
+                    {payloads.reduce((sum, p) => sum + p.recordCount, 0).toLocaleString()} records
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>APIs Configured</span>
+                  <span className="font-medium text-foreground">
+                    {payloads.length} of {selectedApis.length}
+                  </span>
+                </div>
+              </div>
+
+              {payloadsExpanded && (
+                <div className="space-y-2 rounded-lg border p-4">
+                  {selectedApis.map((api) => {
+                    const payload = getPayloadForApi(api.id);
+                    return (
+                      <div
+                        key={api.id}
+                        className="flex items-center justify-between rounded-lg bg-muted/50 p-3"
+                        data-testid={`payload-item-${api.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-xs">
+                            {api.method}
+                          </Badge>
+                          <code className="text-sm font-mono">{api.path}</code>
+                        </div>
+                        {payload ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Check className="h-4 w-4 text-primary" />
+                            <span className="text-muted-foreground">{payload.fileName}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {payload.recordCount.toLocaleString()} records
+                            </Badge>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>No payload uploaded</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
