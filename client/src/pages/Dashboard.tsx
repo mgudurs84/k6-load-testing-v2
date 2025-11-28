@@ -415,6 +415,7 @@ export default function Dashboard() {
                   selectedApis={selectedApis}
                   payloads={payloads}
                   onPayloadsChange={setPayloads}
+                  appId={selectedApp.id}
                 />
 
                 <div className="flex justify-between">

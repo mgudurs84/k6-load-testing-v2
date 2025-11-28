@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Upload, FileJson, Check, AlertCircle, Trash2, Eye } from 'lucide-react';
+import { Upload, FileJson, Check, AlertCircle, Trash2, Eye, Download, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,34 +11,67 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ApiEndpoint } from '@shared/mock-data';
+import { generatePayloadTemplate, validatePayload, generateTemplateJson } from '@shared/template-generator';
+import type { ValidationResult, PayloadTemplate } from '@shared/openapi-types';
 
 export interface PayloadFile {
   apiId: string;
   fileName: string;
-  data: any[];
+  data: unknown[];
   recordCount: number;
+  validationResult?: ValidationResult;
 }
 
 interface PayloadUploadStepProps {
   selectedApis: ApiEndpoint[];
   payloads: PayloadFile[];
   onPayloadsChange: (payloads: PayloadFile[]) => void;
+  appId: string;
 }
 
 export function PayloadUploadStep({
   selectedApis,
   payloads,
   onPayloadsChange,
+  appId,
 }: PayloadUploadStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [templateDialogApi, setTemplateDialogApi] = useState<ApiEndpoint | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const getPayloadForApi = (apiId: string) => {
     return payloads.find((p) => p.apiId === apiId);
   };
 
-  const handleFileUpload = (apiId: string, file: File) => {
+  const getTemplateForApi = (api: ApiEndpoint): PayloadTemplate | null => {
+    return generatePayloadTemplate(appId, api.path, api.method);
+  };
+
+  const handleDownloadTemplate = (api: ApiEndpoint) => {
+    const template = getTemplateForApi(api);
+    if (!template) {
+      return;
+    }
+
+    const jsonContent = generateTemplateJson(template);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `template-${api.method.toLowerCase()}-${api.path.replace(/\//g, '_').replace(/[{}]/g, '')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileUpload = (api: ApiEndpoint, file: File) => {
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -46,33 +79,33 @@ export function PayloadUploadStep({
         const content = e.target?.result as string;
         const parsed = JSON.parse(content);
 
-        // Ensure it's an array
         const dataArray = Array.isArray(parsed) ? parsed : [parsed];
 
         if (dataArray.length === 0) {
           setErrors((prev) => ({
             ...prev,
-            [apiId]: 'File contains no data',
+            [api.id]: 'File contains no data',
           }));
           return;
         }
 
-        // Clear any previous errors
+        const validationResult = validatePayload(appId, api.path, api.method, dataArray);
+
         setErrors((prev) => {
           const newErrors = { ...prev };
-          delete newErrors[apiId];
+          delete newErrors[api.id];
           return newErrors;
         });
 
-        // Update payloads
         const newPayload: PayloadFile = {
-          apiId,
+          apiId: api.id,
           fileName: file.name,
           data: dataArray,
           recordCount: dataArray.length,
+          validationResult,
         };
 
-        const existingIndex = payloads.findIndex((p) => p.apiId === apiId);
+        const existingIndex = payloads.findIndex((p) => p.apiId === api.id);
         if (existingIndex >= 0) {
           const updated = [...payloads];
           updated[existingIndex] = newPayload;
@@ -83,7 +116,7 @@ export function PayloadUploadStep({
       } catch (err) {
         setErrors((prev) => ({
           ...prev,
-          [apiId]: 'Invalid JSON file. Please upload a valid JSON array.',
+          [api.id]: 'Invalid JSON file. Please upload a valid JSON array.',
         }));
       }
     };
@@ -91,7 +124,7 @@ export function PayloadUploadStep({
     reader.onerror = () => {
       setErrors((prev) => ({
         ...prev,
-        [apiId]: 'Failed to read file',
+        [api.id]: 'Failed to read file',
       }));
     };
 
@@ -137,16 +170,11 @@ export function PayloadUploadStep({
         <div className="flex items-start gap-3">
           <FileJson className="mt-0.5 h-5 w-5 text-primary" />
           <div className="text-sm">
-            <p className="font-medium">JSON File Format</p>
+            <p className="font-medium">OpenAPI-Driven Templates</p>
             <p className="text-muted-foreground">
-              Upload a JSON file containing an array of objects. Each object represents one request payload.
+              Click "Generate Template" to download a JSON template based on the API specification.
+              Fill in the template with your test data and upload it back.
             </p>
-            <pre className="mt-2 rounded bg-muted p-2 text-xs">
-{`[
-  {"patientId": "P001", "name": "John Doe"},
-  {"patientId": "P002", "name": "Jane Smith"}
-]`}
-            </pre>
           </div>
         </div>
       </div>
@@ -155,11 +183,13 @@ export function PayloadUploadStep({
         {selectedApis.map((api) => {
           const payload = getPayloadForApi(api.id);
           const error = errors[api.id];
+          const template = getTemplateForApi(api);
+          const hasTemplate = template !== null;
 
           return (
             <Card key={api.id} data-testid={`card-api-payload-${api.id}`}>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between gap-2">
+                <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-3">
                     <Badge variant={getMethodBadgeVariant(api.method)}>
                       {api.method}
@@ -176,6 +206,85 @@ export function PayloadUploadStep({
 
                 {!payload ? (
                   <div className="space-y-3">
+                    <div className="flex gap-2">
+                      {hasTemplate && (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={() => handleDownloadTemplate(api)}
+                                data-testid={`button-download-template-${api.id}`}
+                              >
+                                <Download className="h-4 w-4" />
+                                Generate Template
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Download a JSON template based on the API specification
+                            </TooltipContent>
+                          </Tooltip>
+                          
+                          <Dialog open={templateDialogApi?.id === api.id} onOpenChange={(open) => setTemplateDialogApi(open ? api : null)}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                data-testid={`button-view-schema-${api.id}`}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Schema Details - {api.method} {api.path}</DialogTitle>
+                              </DialogHeader>
+                              <ScrollArea className="max-h-[60vh]">
+                                {template && (
+                                  <div className="space-y-4">
+                                    <div>
+                                      <h4 className="mb-2 font-semibold">Required Fields</h4>
+                                      {template.requiredFields.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                          {template.requiredFields.map((field) => (
+                                            <Badge key={field} variant="destructive">
+                                              {field}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm text-muted-foreground">No required fields</p>
+                                      )}
+                                    </div>
+                                    
+                                    <div>
+                                      <h4 className="mb-2 font-semibold">Field Descriptions</h4>
+                                      <div className="space-y-2">
+                                        {Object.entries(template.fieldDescriptions).map(([field, desc]) => (
+                                          <div key={field} className="rounded-lg bg-muted p-2">
+                                            <span className="font-mono text-sm font-medium">{field}</span>
+                                            <p className="text-sm text-muted-foreground">{desc || 'No description'}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <h4 className="mb-2 font-semibold">Sample Template</h4>
+                                      <pre className="rounded-lg bg-muted p-4 text-xs overflow-x-auto">
+                                        {generateTemplateJson(template)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                )}
+                              </ScrollArea>
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      )}
+                    </div>
+                    
                     <input
                       type="file"
                       accept=".json"
@@ -184,7 +293,7 @@ export function PayloadUploadStep({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          handleFileUpload(api.id, file);
+                          handleFileUpload(api, file);
                         }
                       }}
                       data-testid={`input-file-${api.id}`}
@@ -196,7 +305,7 @@ export function PayloadUploadStep({
                       data-testid={`button-upload-${api.id}`}
                     >
                       <Upload className="h-5 w-5" />
-                      Choose JSON File
+                      Upload JSON Payload File
                     </Button>
                     {error && (
                       <div className="flex items-center gap-2 text-sm text-destructive">
@@ -258,6 +367,47 @@ export function PayloadUploadStep({
                         </Button>
                       </div>
                     </div>
+
+                    {payload.validationResult && (
+                      <div className={`rounded-lg p-3 ${
+                        payload.validationResult.isValid 
+                          ? 'bg-green-500/10 border border-green-500/20' 
+                          : 'bg-yellow-500/10 border border-yellow-500/20'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {payload.validationResult.isValid ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                                All {payload.validationResult.validCount} records are valid
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4 text-yellow-600" />
+                              <span className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                                {payload.validationResult.validCount} valid, {payload.validationResult.invalidCount} with issues
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        
+                        {!payload.validationResult.isValid && payload.validationResult.errors.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {payload.validationResult.errors.slice(0, 5).map((err, idx) => (
+                              <p key={idx} className="text-xs text-yellow-700 dark:text-yellow-400">
+                                Row {err.row}: {err.message}
+                              </p>
+                            ))}
+                            {payload.validationResult.errors.length > 5 && (
+                              <p className="text-xs text-muted-foreground">
+                                ... and {payload.validationResult.errors.length - 5} more issues
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -267,7 +417,7 @@ export function PayloadUploadStep({
       </div>
 
       <div className="rounded-lg border bg-muted/30 p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <p className="font-medium">Upload Progress</p>
             <p className="text-sm text-muted-foreground">
