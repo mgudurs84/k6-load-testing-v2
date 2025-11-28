@@ -190,7 +190,7 @@ The CAEL integration requires a valid GitHub personal access token with `repo` a
 
 ### Overview
 
-The wizard includes a "Upload Payloads" step between API selection and test configuration. This allows users to upload JSON files containing test data for each selected API endpoint.
+The wizard includes a "Upload Payloads" step between API selection and test configuration. This allows users to upload JSON files containing test data for each selected API endpoint. The system uses OpenAPI specifications to generate templates and validate uploaded payloads.
 
 ### Wizard Flow (6 Steps)
 
@@ -201,15 +201,61 @@ The wizard includes a "Upload Payloads" step between API selection and test conf
 5. **Review** - Verify all settings including uploaded payloads
 6. **Results** - View test execution results and AI analysis
 
+### OpenAPI-Driven Template Generation
+
+The system uses OpenAPI specifications to provide intelligent template generation and validation.
+
+**Key Files:**
+- `shared/openapi-types.ts` - TypeScript types for OpenAPI schemas, templates, and validation
+- `shared/openapi-specs.ts` - Sample OpenAPI specs for all mock healthcare applications
+- `shared/template-generator.ts` - Utilities for generating templates and validating payloads
+
+**Features:**
+- **Generate Template Button**: Downloads a JSON template based on the API's OpenAPI spec
+- **Schema Details Dialog**: Shows required fields, field descriptions, and sample JSON
+- **Automatic Validation**: Uploaded files are validated against the OpenAPI schema
+- **Validation Feedback**: Shows valid/invalid record counts and field-level errors
+
+**Supported Applications with OpenAPI Specs:**
+- CDR Clinical API (patients, appointments, records, billing)
+- Clinical Data API (encounters, observations)
+- Insurance Claims API (claims, eligibility)
+- Pharmacy Network API (prescriptions, dispensations)
+- Member Portal API (members, messages)
+- Provider Directory API (providers)
+
 ### Components
 
 **PayloadUploadStep** (`client/src/components/PayloadUploadStep.tsx`):
 - Displays file upload card for each selected API
+- "Generate Template" button to download OpenAPI-based JSON template
+- Schema view dialog showing required fields and descriptions
 - Accepts JSON files containing array of payload objects
-- Shows file name, record count, and JSON preview
+- Shows file name, record count, and validation status
+- Validation feedback with row-level error details
 - Supports preview dialog with first 5 records
 - Allows removal and re-upload of payload files
 - Tracks upload progress across all APIs
+
+### Template Generation Flow
+
+```
+1. User clicks "Generate Template" for an API
+          ↓
+2. System looks up OpenAPI spec for that endpoint
+          ↓
+3. Extracts request body schema with required fields
+          ↓
+4. Generates JSON template with example values
+          ↓
+5. User downloads and fills template with real data
+          ↓
+6. User uploads completed JSON file
+          ↓
+7. System validates against OpenAPI schema
+          ↓
+8. Shows validation results (valid/invalid counts, errors)
+```
 
 ### JSON File Format
 
@@ -217,11 +263,19 @@ Upload a JSON file with an array of objects. Each object represents one request 
 
 ```json
 [
-  {"patientId": "P001", "name": "John Doe", "dob": "1990-01-15"},
-  {"patientId": "P002", "name": "Jane Smith", "dob": "1985-03-22"},
-  {"patientId": "P003", "name": "Bob Wilson", "dob": "1978-11-30"}
+  {"patientId": "P001", "firstName": "John", "lastName": "Doe", "dateOfBirth": "1990-01-15"},
+  {"patientId": "P002", "firstName": "Jane", "lastName": "Smith", "dateOfBirth": "1985-03-22"}
 ]
 ```
+
+### Validation Rules
+
+The system validates uploaded payloads against the OpenAPI schema:
+- **Required fields**: Checks all required fields are present
+- **Data types**: Validates string, integer, number, boolean, array, object types
+- **Formats**: Validates date (YYYY-MM-DD), email, date-time formats
+- **Enums**: Validates values match allowed enum options
+- **Nested objects**: Validates nested object structures
 
 ### State Management
 
@@ -229,6 +283,7 @@ Upload a JSON file with an array of objects. Each object represents one request 
 - Payloads persist when navigating between wizard steps
 - Payloads are filtered when APIs are deselected (preserves relevant uploads)
 - Payloads are cleared when starting a new test
+- Validation results are stored with each payload
 
 ### TestReview Integration
 
