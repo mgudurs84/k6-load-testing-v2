@@ -165,12 +165,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(mockTestRuns[index]);
   });
 
-  // GitHub Actions Integration - Dynamic K6 Script Generation
+  // GitHub Actions Integration - CAEL K6 Load Test
   app.post("/api/github/trigger-workflow", async (req, res) => {
     const { 
       token, 
-      testPlan,
-      legacyMode = false
+      testPlan
     } = req.body;
 
     if (!token) {
@@ -178,54 +177,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      let workflowParams;
-
-      if (legacyMode || !testPlan) {
-        workflowParams = {
-          ref: "master",
-          inputs: {
-            stage2_duration: "5m",
-            stage2_target: "100",
-            parallelism: "2",
-            test_id: `cael-test-${Date.now()}`,
-            test_url: "https://cdr-de-clinical-api.prod.aig.aetna.com/persons/033944599299665$/visits"
-          }
-        };
-      } else {
-        const { selectedApis, payloads, config, baseUrl } = testPlan;
-        const testId = `test-${Date.now()}`;
-        
-        const endpointsForK6 = (selectedApis || []).map((api: any) => ({
-          id: api.id,
-          name: api.description || api.path,
-          method: api.method,
-          path: api.path,
-          category: api.category,
-        }));
-
-        const payloadsForK6: Record<string, any[]> = {};
-        for (const api of (selectedApis || [])) {
-          if (payloads && payloads[api.id] && payloads[api.id].length > 0) {
-            payloadsForK6[api.id] = payloads[api.id];
-          }
+      // Extract config from wizard or use defaults
+      const config = testPlan?.config || {};
+      
+      // Build workflow params with simplified inputs
+      // Dynamic values from wizard UI, rest are hardcoded
+      const workflowParams = {
+        ref: "main",
+        inputs: {
+          stage2_duration: `${config.duration || 5}m`,
+          stage2_target: String(config.virtualUsers || 100),
+          parallelism: "2",
+          test_id: `cael-test-${Date.now()}`,
+          test_url: "https://cdr-de-clinical-api.prod.aig.aetna.com/persons/03394459929966658/visits"
         }
-
-        workflowParams = {
-          ref: "master",
-          inputs: {
-            test_id: testId,
-            virtual_users: String(config?.virtualUsers || 100),
-            duration: `${config?.duration || 5}m`,
-            ramp_up: `${config?.rampUpTime || 30}s`,
-            ramp_down: '30s',
-            response_threshold_ms: String(config?.responseTimeThreshold || 500),
-            error_threshold_percent: String(config?.errorRateThreshold || 1),
-            endpoints_json: JSON.stringify(endpointsForK6),
-            payloads_base64: Buffer.from(JSON.stringify(payloadsForK6)).toString('base64'),
-            base_url: baseUrl || 'https://cdr-de-clinical-api.prod.aig.aetna.com'
-          }
-        };
-      }
+      };
 
       const response = await fetch(
         "https://api.github.com/repos/cvs-health-source-code/cdr-cis-test-image-promotion/actions/workflows/load-test.yml/dispatches",
