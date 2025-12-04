@@ -1,0 +1,18 @@
+[
+  {
+    "patientId": "P001",
+    "firstName": "John",
+    "lastName": "Doe",
+    "dateOfBirth": "1990-01-15",
+    "gender": "male",
+    "email": "john.doe@email.com",
+    "phone": "+1-555-123-4567",
+    "address": {
+      "street": "123 Main St",
+      "city": "Boston",
+      "state": "MA",
+      "zipCode": "02101"
+    },
+    "insuranceId": "INS-12345"
+  }
+]

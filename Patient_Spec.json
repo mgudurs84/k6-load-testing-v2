@@ -1,0 +1,231 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "CAEL Patient Management API",
+    "description": "API for managing patient demographics and clinical notes",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.cael.example.com/v1",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/patients": {
+      "post": {
+        "summary": "Create a new patient",
+        "operationId": "createPatient",
+        "tags": ["Patients"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Patient created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Patient"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        }
+      }
+    },
+    "/patients/{patientId}": {
+      "get": {
+        "summary": "Get patient by ID",
+        "operationId": "getPatient",
+        "tags": ["Patients"],
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique patient identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Patient"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Patient not found"
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/notes": {
+      "post": {
+        "summary": "Create a clinical note for a patient",
+        "operationId": "createNote",
+        "tags": ["Notes"],
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique patient identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Note created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Patient not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PatientCreate": {
+        "type": "object",
+        "required": ["firstName", "lastName", "dateOfBirth"],
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Doe"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date",
+            "example": "1980-05-15"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"],
+            "example": "male"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+1-555-123-4567"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john.doe@example.com"
+          }
+        }
+      },
+      "Patient": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PatientCreate"
+          },
+          {
+            "type": "object",
+            "required": ["patientId", "createdAt"],
+            "properties": {
+              "patientId": {
+                "type": "string",
+                "example": "PAT-12345"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-11-28T10:30:00Z"
+              }
+            }
+          }
+        ]
+      },
+      "NoteCreate": {
+        "type": "object",
+        "required": ["content", "noteType"],
+        "properties": {
+          "noteType": {
+            "type": "string",
+            "enum": ["progress", "assessment", "treatment", "general"],
+            "example": "progress"
+          },
+          "content": {
+            "type": "string",
+            "example": "Patient reports improvement in symptoms."
+          },
+          "providerId": {
+            "type": "string",
+            "example": "DR-789"
+          }
+        }
+      },
+      "Note": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/NoteCreate"
+          },
+          {
+            "type": "object",
+            "required": ["noteId", "patientId", "createdAt"],
+            "properties": {
+              "noteId": {
+                "type": "string",
+                "example": "NOTE-67890"
+              },
+              "patientId": {
+                "type": "string",
+                "example": "PAT-12345"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-11-28T14:15:00Z"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
